@@ -1,90 +1,37 @@
-# google_client_config and kubernetes provider must be explicitly specified like the following.
-data "google_client_config" "default" {}
-
-provider "kubernetes" {
-  host                   = "https://${module.gke.endpoint}"
-  token                  = data.google_client_config.default.access_token
-  cluster_ca_certificate = base64decode(module.gke.ca_certificate)
+locals {
+  cluster_name      = "psn-playground"
+  enable_preemtible = false
 }
 
-module "gke" {
-  source                     = "terraform-google-modules/kubernetes-engine/google"
-  project_id                 = "<PROJECT ID>"
-  name                       = "gke-test-1"
-  region                     = "us-central1"
-  zones                      = ["us-central1-a", "us-central1-b", "us-central1-f"]
-  network                    = "vpc-01"
-  subnetwork                 = "us-central1-01"
-  ip_range_pods              = "us-central1-01-gke-01-pods"
-  ip_range_services          = "us-central1-01-gke-01-services"
-  http_load_balancing        = false
-  network_policy             = false
-  horizontal_pod_autoscaling = true
-  filestore_csi_driver       = false
 
-  node_pools = [
-    {
-      name                      = "default-node-pool"
-      machine_type              = "e2-medium"
-      node_locations            = "us-central1-b,us-central1-c"
-      min_count                 = 1
-      max_count                 = 100
-      local_ssd_count           = 0
-      spot                      = false
-      disk_size_gb              = 100
-      disk_type                 = "pd-standard"
-      image_type                = "COS_CONTAINERD"
-      enable_gcfs               = false
-      enable_gvnic              = false
-      logging_variant           = "DEFAULT"
-      auto_repair               = true
-      auto_upgrade              = true
-      service_account           = "project-service-account@<PROJECT ID>.iam.gserviceaccount.com"
-      preemptible               = false
-      initial_node_count        = 80
-    },
-  ]
+resource "google_service_account" "gke_default_sa" {
+  account_id   = "${local.cluster_name}-cluster-sa"
+  display_name = "Service Account for ${local.cluster_name} GKE cluster."
+}
 
-  node_pools_oauth_scopes = {
-    all = [
-      "https://www.googleapis.com/auth/logging.write",
-      "https://www.googleapis.com/auth/monitoring",
-    ]
-  }
+resource "google_container_cluster" "primary" {
+  name = local.cluster_name
 
-  node_pools_labels = {
-    all = {}
+  # We can't create a cluster with no node pool defined, but we want to only use
+  # separately managed node pools. So we create the smallest possible default
+  # node pool and immediately delete it.
+  remove_default_node_pool = true
+  initial_node_count       = 1
+}
 
-    default-node-pool = {
-      default-node-pool = true
-    }
-  }
+resource "google_container_node_pool" "primary_nodes" {
+  name       = "${local.cluster_name}-node-pool"
+  cluster    = google_container_cluster.primary.name
+  node_count = 1
 
-  node_pools_metadata = {
-    all = {}
+  node_config {
+    preemptible  = local.enable_preemtible
+    machine_type = local.machine_type
 
-    default-node-pool = {
-      node-pool-metadata-custom-value = "my-node-pool"
-    }
-  }
-
-  node_pools_taints = {
-    all = []
-
-    default-node-pool = [
-      {
-        key    = "default-node-pool"
-        value  = true
-        effect = "PREFER_NO_SCHEDULE"
-      },
-    ]
-  }
-
-  node_pools_tags = {
-    all = []
-
-    default-node-pool = [
-      "default-node-pool",
+    # Google recommends custom service accounts that have cloud-platform scope and permissions granted via IAM Roles.
+    service_account = google_service_account.gke_default_sa.email
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
     ]
   }
 }
