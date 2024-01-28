@@ -1,6 +1,8 @@
 locals {
-  cluster_name      = "psn-playground"
-  enable_preemtible = false
+  cluster_name          = "psn-playground"
+  enable_preemtible     = false
+  prevent_destroy_cluster = false
+  node_count            = 1
 }
 
 
@@ -10,7 +12,9 @@ resource "google_service_account" "gke_default_sa" {
 }
 
 resource "google_container_cluster" "primary" {
-  name = local.cluster_name
+  name                = local.cluster_name
+  location            = local.zone
+  deletion_protection = local.allow_destroy_cluster
 
   # We can't create a cluster with no node pool defined, but we want to only use
   # separately managed node pools. So we create the smallest possible default
@@ -22,7 +26,7 @@ resource "google_container_cluster" "primary" {
 resource "google_container_node_pool" "primary_nodes" {
   name       = "${local.cluster_name}-node-pool"
   cluster    = google_container_cluster.primary.name
-  node_count = 1
+  node_count = local.node_count
 
   node_config {
     preemptible  = local.enable_preemtible
