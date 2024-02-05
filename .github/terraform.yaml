@@ -1,0 +1,58 @@
+name: "Provision infrastructure"
+
+on: workflow_dispatch
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  DEFAULT_REVIEWERS: thai-nm
+  GCP_PROJECT_ID: psn-playground
+
+jobs:
+  provision:
+    name: "Terraform"
+    runs-on: ubuntu-22.04
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      # Checkout the repository to the GitHub Actions runner
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.2"
+
+      # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+      - name: Terraform Init
+        run: terraform init
+
+      # Checks that all Terraform configuration files adhere to a canonical format
+      - name: Terraform Format
+        run: terraform fmt -check
+
+      # Generates an execution plan for Terraform
+      - name: Terraform Plan
+        run: terraform plan -input=false
+
+      # Requires reviewers
+      - name: Approval required
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: ${{ env.DEFAULT_REVIEWERS }}
+          minimum-approvals: 1
+          issue-title: "Deploying infrastructure with Terraform on $GCP_PROJECT_ID"
+          issue-body: "Please approve or deny the deployment."
+          exclude-workflow-initiator-as-approver: false
+
+      # Apply changes
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false
