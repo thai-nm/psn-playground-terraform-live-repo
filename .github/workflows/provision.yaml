@@ -22,7 +22,7 @@ jobs:
     steps:
       # Checkout the repository to the GitHub Actions runner
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Install Terraform CLI
       - name: Setup Terraform
@@ -31,7 +31,7 @@ jobs:
           terraform_version: "1.7.2"
 
       - name: Authenticate to Google Cloud Platform
-        uses: google-github-actions/auth@v0
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_CREDENTIALS }}
 
