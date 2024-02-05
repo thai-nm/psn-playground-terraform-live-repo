@@ -25,6 +25,7 @@ resource "google_container_cluster" "primary" {
 
 resource "google_container_node_pool" "primary_nodes" {
   name       = "${local.cluster_name}-node-pool"
+  location   = local.zone
   cluster    = google_container_cluster.primary.name
   node_count = local.node_count
 
