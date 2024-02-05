@@ -12,7 +12,7 @@ env:
 
 jobs:
   provision:
-    name: "Terraform"
+    name: "Provision"
     runs-on: ubuntu-22.04
 
     defaults:
@@ -24,11 +24,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+      # Install Terraform CLI
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.7.2"
+
+      - name: Authenticate to Google Cloud Platform
+        uses: google-github-actions/auth@v0
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
 
       # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
       - name: Terraform Init
